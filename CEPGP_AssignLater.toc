@@ -1,0 +1,10 @@
+## Interface: 11305
+## Title: CEPGP_AssignLater
+## Author: Earnil
+## Notes: Lets you post and and assign items later
+## Version: 0.100
+## Dependencies: CEPGP
+## DefaultState: enabled
+## SavedVariables: CEPGP_AssignLater
+
+CEPGP_AssignLater.lua
