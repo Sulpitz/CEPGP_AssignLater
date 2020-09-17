@@ -1,5 +1,6 @@
 local addonName, addon = ...
-
+CEPGP_AL_AssignFromBag = nil
+CEPGP_AL_ItemTable = {}
 
 
 --[[
@@ -10,6 +11,7 @@ CEPGP_handleLoot(event, arg1, arg2)
 
 
 ]]--
+
 
 local function SplitMessage(msg)
 	local returnTable = {}
@@ -26,11 +28,11 @@ local function SplitMessage(msg)
 	return returnTable
 end
 
-local function AL_CEPGP_LootFrame_Update(itemTable)
+local function AL_CEPGP_LootFrame_Update()
 	local items = {}
-	local count = #itemTable	
+	local count = #CEPGP_AL_ItemTable	
 	local itemTexture, itemName, itemStackCount, itemRarity, itemLink
-	for index, item in pairs(itemTable) do
+	for index, item in pairs(CEPGP_AL_ItemTable) do
 		itemName, itemLink, itemRarity, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount, itemEquipLoc, itemTexture, itemSellPrice = GetItemInfo(item)
 
 		if itemName ~= "nil" then			
@@ -50,6 +52,8 @@ local function AL_CEPGP_LootFrame_Update(itemTable)
 		end
 	end	
 
+	print("--------> CEPGP_AL_AssignFromBag = true")
+	CEPGP_AL_AssignFromBag = true
 	for k, v in pairs(items) do -- k = loot slot number, v is the table result
 		if (UnitInRaid("player") or CEPGP_Info.Debug) and (v[3] >= CEPGP.Loot.MinThreshold) or (CEPGP_inOverride(v[2]) or CEPGP_inOverride(v[4])) then
 			if CEPGP_isML() == 0 then
@@ -60,7 +64,48 @@ local function AL_CEPGP_LootFrame_Update(itemTable)
 			break;
 		end
 	end
-	CEPGP_populateFrame(items);
+	CEPGP_populateFrame(items)
+end
+
+local function AL_CloseLoot()
+	CEPGP_handleLoot("LOOT_CLOSED")	
+	CEPGP_AL_AssignFromBag = nil
+	print("--------> CEPGP_AL_AssignFromBag = nil")
+end
+
+-- hook loot dist function
+function CEPGP_LootPopup_hook()
+	origDistribute_popup_give = CEPGP_distribute_popup_give;
+	CEPGP_distribute_popup_give = function(...)
+		if CEPGP_AL_AssignFromBag then
+			local index = CEPGP_lootSlot
+
+			CEPGP_handleLoot("LOOT_SLOT_CLEARED", CEPGP_lootSlot)
+			table.remove(CEPGP_AL_ItemTable, index)
+			
+			if #CEPGP_AL_ItemTable > 0 then
+				AL_CEPGP_LootFrame_Update()
+			else
+				AL_CloseLoot()
+			end
+		else
+			origDistribute_popup_give()
+		end
+	end
+end
+
+function AL_GiveToGuildBank()
+	if CEPGP_AL_AssignFromBag then
+		local index = CEPGP_lootSlot
+		table.remove(CEPGP_AL_ItemTable, index)
+		SendChatMessage("Awarded " .. _G["CEPGP_distribute_item_name"]:GetText() .. " to Guild Bank", CHANNEL, CEPGP_LANGUAGE);
+		AL_CloseLoot()
+		if #CEPGP_AL_ItemTable > 0 then
+			AL_CEPGP_LootFrame_Update()
+		end
+	else
+		print("only available when Assgning loot with AL")
+	end
 end
 
 local function bla()
@@ -182,11 +227,34 @@ SLASH_CEPGPAL1 = '/cepal'
 SLASH_CEPGPAL2 = '/al'
 function SlashCmdList.CEPGPAL(msg, editbox)   
 	print("AssignLater")
+	if msg == "clear" then
+		print("Clearing AL")
+		AL_CloseLoot()
 
-	if msg and msg ~= "" then
-		AL_CEPGP_LootFrame_Update(SplitMessage(msg))
+	elseif msg == "gb" then
+		AL_GiveToGuildBank()
+
+	elseif msg and msg ~= "" then
+		CEPGP_AL_ItemTable = SplitMessage(msg)
+		AL_CEPGP_LootFrame_Update()
 		--LootLinkTest(SplitMessage(msg))
 	else
 		print("Please post Item do Assign")
 	end
 end
+
+
+function CEPGP_AL_OnEvent(self, event, arg1)
+	if event == "ADDON_LOADED" and arg1 == "CEPGP_ZA" then
+		--CEPGP_AL_initialise();
+		CEPGP_LootPopup_hook()
+	end
+end
+
+function CEPGP_AL_createFrames()
+	local CEPGP_AL_frame = CreateFrame("Frame", "CEPGP_AL_award_raid_popup", _G["CEPGP_award_raid_popup"]);	
+	CEPGP_AL_frame:RegisterEvent("ADDON_LOADED");
+	CEPGP_AL_frame:SetScript("OnEvent", CEPGP_AL_OnEvent);
+end
+
+CEPGP_AL_createFrames()
