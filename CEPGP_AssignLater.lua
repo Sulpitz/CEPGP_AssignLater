@@ -70,6 +70,7 @@ end
 local function AL_CloseLoot()
 	CEPGP_handleLoot("LOOT_CLOSED")	
 	CEPGP_AL_AssignFromBag = nil
+	CEPGP_AL_ItemTable = {}
 	print("--------> CEPGP_AL_AssignFromBag = nil")
 end
 
@@ -239,7 +240,7 @@ function SlashCmdList.CEPGPAL(msg, editbox)
 		AL_CEPGP_LootFrame_Update()
 		--LootLinkTest(SplitMessage(msg))
 	else
-		print("Please post Item do Assign | clear to clear current items)
+		print("Please post Item do Assign | clear to clear current items")
 	end
 end
 
